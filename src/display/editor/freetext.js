@@ -46,6 +46,8 @@ class FreeTextEditor extends AnnotationEditor {
 
   #color;
 
+  #lxnk_id;
+
   #content = "";
 
   #editorDivId = `${this.id}-editor`;
@@ -239,6 +241,8 @@ class FreeTextEditor extends AnnotationEditor {
       keepUndo: true,
     });
   }
+
+  
 
   /**
    * Update the color and make this action undoable.
@@ -434,6 +438,34 @@ class FreeTextEditor extends AnnotationEditor {
    * Commit the content we have in this editor.
    * @returns {undefined}
    */
+
+  silentCommit(){
+    super.commit();
+    this.disableEditMode();
+    this.#setEditorDimensions();
+
+    const setText = text => {
+      this.#content = text;
+      if (!text) {
+        this.remove();
+        return;
+      }
+      this.#setContent();
+      this._uiManager.rebuild(this);
+      this.#setEditorDimensions();
+    };
+    this.addCommands({
+      cmd: () => {
+        setText(newText);
+      },
+      undo: () => {
+        setText(savedText);
+      },
+      mustExec: false,
+    });
+    this.#setEditorDimensions();
+
+  }
   commit() {
     if (!this.isInEditMode()) {
       return;
@@ -446,7 +478,7 @@ class FreeTextEditor extends AnnotationEditor {
     if (savedText === newText) {
       return;
     }
-
+    // this.#setEditorDimensions(); 
     const setText = text => {
       this.#content = text;
       if (!text) {
@@ -529,6 +561,132 @@ class FreeTextEditor extends AnnotationEditor {
   }
 
   /** @inheritdoc */
+
+  lxnkSetText(text){
+    // super.enableEditMode(); 
+    this.#content = text;
+  }
+
+  lxnkSetContent(){
+    this.#setContent();
+    // super.enableEditMode(); 
+  }
+
+  silentRender() {
+    if (this.div) {
+      return this.div;
+    }
+
+    let baseX, baseY;
+    if (this.width) {
+      baseX = this.x;
+      baseY = this.y;
+    }
+
+    super.silentRender();
+    this.editorDiv = document.createElement("div");
+    this.editorDiv.className = "internal";
+
+    this.editorDiv.setAttribute("id", this.#editorDivId);
+    this.enableEditing();
+
+    FreeTextEditor._l10nPromise
+      .get("editor_free_text2_aria_label")
+      .then(msg => this.editorDiv?.setAttribute("aria-label", msg));
+
+    FreeTextEditor._l10nPromise
+    .get("free_text2_default_content")
+    .then(msg => this.editorDiv?.setAttribute("default-content", msg));
+
+    this.editorDiv.contentEditable = true;
+
+    const { style } = this.editorDiv;
+    style.fontSize = `calc(${this.#fontSize}px * var(--scale-factor))`;
+    style.color = this.#color;
+
+    this.div.append(this.editorDiv);
+
+    this.overlayDiv = document.createElement("div");
+    this.overlayDiv.classList.add("overlay", "enabled");
+    this.div.append(this.overlayDiv);
+
+    bindEvents(this, this.div, ["dblclick", "keydown"]);
+
+
+    this.#setContent(); 
+
+    if (this.width) {
+      // This editor was created in using copy (ctrl+c).
+      const [parentWidth, parentHeight] = this.parentDimensions;
+      if (this.annotationElementId) {
+        // This stuff is hard to test: if something is changed here, please
+        // test with the following PDF file:
+        //  - freetexts.pdf
+        //  - rotated_freetexts.pdf
+        // Only small variations between the original annotation and its editor
+        // are allowed.
+
+        // position is the position of the first glyph in the annotation
+        // and it's relative to its container.
+        const { position } = this.#initialData;
+        let [tx, ty] = this.getInitialTranslation();
+        [tx, ty] = this.pageTranslationToScreen(tx, ty);
+        const [pageWidth, pageHeight] = this.pageDimensions;
+        const [pageX, pageY] = this.pageTranslation;
+        let posX, posY;
+        switch (this.rotation) {
+          case 0:
+            posX = baseX + (position[0] - pageX) / pageWidth;
+            posY = baseY + this.height - (position[1] - pageY) / pageHeight;
+            break;
+          case 90:
+            posX = baseX + (position[0] - pageX) / pageWidth;
+            posY = baseY - (position[1] - pageY) / pageHeight;
+            [tx, ty] = [ty, -tx];
+            break;
+          case 180:
+            posX = baseX - this.width + (position[0] - pageX) / pageWidth;
+            posY = baseY - (position[1] - pageY) / pageHeight;
+            [tx, ty] = [-tx, -ty];
+            break;
+          case 270:
+            posX =
+              baseX +
+              (position[0] - pageX - this.height * pageHeight) / pageWidth;
+            posY =
+              baseY +
+              (position[1] - pageY - this.width * pageWidth) / pageHeight;
+            [tx, ty] = [-ty, tx];
+            break;
+        }
+        this.setAt(posX * parentWidth, posY * parentHeight, tx, ty);
+      } else {
+        this.setAt(
+          baseX * parentWidth,
+          baseY * parentHeight,
+          this.width * parentWidth,
+          this.height * parentHeight
+        );
+      }
+
+      this.#setContent();
+      this._isDraggable = true;
+      this.editorDiv.contentEditable = false;
+    } else {
+      this._isDraggable = false;
+      this.editorDiv.contentEditable = true;
+    }
+
+    if (typeof PDFJSDev !== "undefined" && PDFJSDev.test("TESTING")) {
+      this.div.setAttribute("annotation-id", this.annotationElementId);
+    }
+
+    return this.div;
+
+  }
+
+  
+
   render() {
     if (this.div) {
       return this.div;
