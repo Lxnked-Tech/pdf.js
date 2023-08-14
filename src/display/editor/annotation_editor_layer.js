@@ -170,6 +170,7 @@ class AnnotationEditorLayer {
       { offsetX: 0, offsetY: 0 },
       /* isCentered = */ false
     );
+    
     editor.setInBackground();
   }
 
@@ -382,6 +383,24 @@ class AnnotationEditorLayer {
     this.#uiManager.addToAnnotationStorage(editor);
   }
 
+  silentAdd(editor) {
+    this.changeParent(editor);
+    this.#uiManager.addEditor(editor);
+    this.attach(editor);
+
+    if (!editor.isAttachedToDOM) {
+      const div = editor.silentRender();
+      this.div.append(div);
+      editor.isAttachedToDOM = true;
+    }
+
+    this.moveEditorInDOM(editor);
+    editor.onceAdded();
+    editor.silentCommit(); 
+    // editor.enableEditMode.bind(editor.)
+    this.#uiManager.addToAnnotationStorage(editor);
+  }
+
   moveEditorInDOM(editor) {
     if (!editor.isAttachedToDOM) {
       return;
@@ -529,6 +548,39 @@ class AnnotationEditorLayer {
     );
   }
 
+
+  createStealthTextEditor(lxnk_id, x, y, text){
+    // const lxnk_id = id; 
+    const id = this.getNextId(); 
+    const editor = new FreeTextEditor({
+      parent: this,
+      id,
+      x: x,
+      y: y,
+      uiManager: this.#uiManager,
+    });
+
+    editor.lxnkSetText(text);
+    // editor.enterInEditMode();
+
+    // Object.defineProperty(
+    //   editor,
+    //   lxnk_id, 
+    //   {
+    //   enumerable: false,
+    //   configurable: false,
+    //   writable: false,
+    //   value: lxnk_id,
+    //   }
+    // )
+
+    // editor.commitOrRemove(); 
+    this.silentAdd(editor);
+
+    return editor; 
+
+  }
+
   /**
    * Set the last selected editor.
    * @param {AnnotationEditor} editor
@@ -596,6 +648,7 @@ class AnnotationEditorLayer {
     }
 
     this.#createAndAddNewEditor(event, /* isCentered = */ false);
+  
   }
 
   /**
