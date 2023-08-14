@@ -756,6 +756,37 @@ class AnnotationEditor {
     return this.div;
   }
 
+
+   /**
+   * Render this editor (triggering a minimal number of events) in a div.
+   * @returns {HTMLDivElement}
+   */
+  silentRender() {
+    this.div = document.createElement("div");
+    this.div.setAttribute("data-editor-rotation", (360 - this.rotation) % 360);
+    this.div.className = this.name;
+    this.div.setAttribute("id", this.id);
+    this.div.setAttribute("tabIndex", 0);
+
+    this.setInForeground();
+
+    const [parentWidth, parentHeight] = this.parentDimensions;
+    if (this.parentRotation % 180 !== 0) {
+      this.div.style.maxWidth = `${((100 * parentHeight) / parentWidth).toFixed(
+        2
+      )}%`;
+      this.div.style.maxHeight = `${(
+        (100 * parentWidth) /
+        parentHeight
+      ).toFixed(2)}%`;
+    }
+
+    const [tx, ty] = this.getInitialTranslation();
+    this.translate(tx, ty);
+
+    return this.div;
+  }
+
   /**
    * Onpointerdown callback.
    * @param {PointerEvent} event
